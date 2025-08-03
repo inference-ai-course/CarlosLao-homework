@@ -1,0 +1,1099 @@
+
+--- Page 1 ---
+arX1v:2507.23751v1 [cs.AI] 31 Jul 2025
+
+CoOT-SELF-INSTRUCT:
+BUILDING HIGH-QUALITY SYNTHETIC PROMPTS FOR
+REASONING AND NON-REASONING TASKS
+
+Ping Yu', Jack Lanchantin', Tianlu Wang', Weizhe Yuan':*, Olga Golovneva!
+Ilia Kulikov', Sainbayar Sukhbaatar!', Jason Weston!-?, Jing Xu!
+TRAIR at Meta, 7NYU
+
+ABSTRACT
+
+We propose CoT-Self-Instruct, a synthetic data generation method that instructs
+LLMs to first reason and plan via Chain-of-Thought (CoT) based on the given
+seed tasks, and then to generate a new synthetic prompt of similar quality and
+complexity for use in LLM training, followed by filtering for high-quality data
+with automatic metrics. In verifiable reasoning, our synthetic data significantly
+outperforms existing training datasets, such as slk and OpenMathReasoning,
+across MATHS500, AMC23, AIME24 and GPQA-Diamond. For non-verifiable
+instruction-following tasks, our method surpasses the performance of human or
+standard self-instruct prompts on both AlpacaEval 2.0 and Arena-Hard.
+
+1 INTRODUCTION
+
+The transformative rise of Large Language Models (LLMs) has initiated a substantial paradigm
+
+shift in the domain of deep learning (Zhang et al.| 2023 2023 2024). The
+
+development of such models emphasizes scale, and relies heavily on large volumes of high-quality
+
+data (Gandhi et al.}!2024}/Abdin et al.|/2024). However, acquiring such data from human sources can
+
+often be challenging or even impractical due to factors such as high costs, data scarcity, and privacy
+concerns (Kurakin et al.|/2023). Furthermore, several studies
+2023) have pointed out that human-generated data, being inherently prone to
+biases and errors, may not always be ideal for model training or evaluation. In this context, synthetic
+data emerges as a viable alternative for obtaining high-quality datasets.
+
+Synthetic data is artificially generated to replicate the characteristics and patterns of real-world data.
+One innovative approach to creating such data is the Self-Instruct method [2022a),
+which utilizes LLMs themselves to generate instruction-following examples. This method begins
+by selecting a small set of seed instruction-following samples, which are then used to prompt LLMs
+to produce additional demonstrations in a similar format. Since then a number of variants have been
+introduced that increase the complexity of queries 2024), maintain
+semantic diversity 2023), scale the synthetic data (Yuan et al. 2023), and use these
+methods in self-improvement loops (Yuan et al. 2024). However, a significant challenge with these
+approaches is to ensure the quality and effectiveness of the generated data for language model train-
+ing. Overall, generating high-quality synthetic data and optimizing its use for both reasoning and
+non-reasoning tasks still remains insufficiently understood.
+
+In this paper, we present Chain-of-Thought(CoT)-Self-Instruct, a method that both (i) uses reason-
+ing to help create high quality synthetic data; and (ii) self-filters the created data to only keep the
+highest quality ones, see|Figure I] We show the efficacy of this approach for creating both verifiable
+reasoning data and non-verifiable instruction following tasks, where in both cases using Chain-of-
+Thought (CoT) to help generate the examples outperforms those generated without CoT. To curate
+high quality verifiable data we introduce Answer-Consistency, which discards examples where the
+CoT-Self-Instruct-generated answer does not match the majority vote solution of the LLM, with the
+assumption that those examples are either incorrectly labeled or too difficult. For non-verifiable data
+we use the recent Rejecting Instruction Preferences (RIP) method which measures
+the quality of prompts based on the distribution of reward model scores from LLM solutions. In both
+
+--- Page 2 ---
+<think> Okay, let's tackle this. The user wants me to generate a new reasoning question
+Analyze Seed based on the given seed questions. Let me first understand the seed questions to ensure
+Instructions ~~~ my new question is inspired but original.
+
+Answer
+Prompt x i} yal
+Answer
+
+Let me try to think of a concrete example ...... But that's similar to Seed Question 2.
+
+Seed Maybe modify it. yn |
+Kal . Alternatively, maybe use different functions. For example ...... But that seems eee
+Pans too simple. Maybe the user wants a more complex problem. Let me think again. Answer yO ea y*
+Alternatively, think of a problem involving ...... So the answer is 1.
+Brainstorm This is a good candidate. It's a novel question, not directly copying the seeds, inconsistent consistent
+candidates: ~ and the answer is a single scalar
+& self evaluate once
+Let me check if it meets the requirements....... Reject x Accept x
+Yes, this seems to fit. The question is self-contained, not copying the seeds, and the answer > 8
+
+Final self A is a single scalar. So this should be the new question.</think>
+evaluation [New Question Begin]Find the value of $ k $ such that the system of equations $ kx + yF 1 Answer-Consistency Filter
+$and $x + ky =1 $ has infinitely many solutions.[New Question End]
+[Final Answer to New Question Begin]\\boxed{1}[Final Answer to New Question End]
+
+Find Common
+
+Elements ——(_ - Step 1 #Common Elements List#:
+
+cess Generate a plan
+
+- Step 2 #Plan#: —
+The plan is to create a synthetic prompt that combines the elements of .... This prompt
+
+will explore a scenario where ....
+
+- Step 3 #Synthetic Prompt#: —p>
+Develop a message for the administrators of the Meiji Shrine in Tokyo, suggesting that
+
+they incorporate more digital and interactive elements into their traditional New Year
+
+(Oshogatsu) festivities, such as an app that allows visitors to explore the shrine's history
+
+MlResponse1 Mill Response 2_—«Mlll Response 3
+
+.
+
+Reward(x2) Reward(x3)
+
+Response Rewards
+
+and cultural significance, or an augmented reality feature that highlights the shrine's 2 x2 x3
+traditional architecture and decorations. ...... ae N Prompts
+RIP Filter
+Step1. Synthetic Instruction Creation via
+Chain-of-Thought (CoT) Step 2. Synthetic Instruction Curation
+
+Figure 1: CoT-Self-Instruct. Our method first prompts LLMs to reason and generate new instruc-
+
+tions given seed prompts, followed by automatically curating high-quality data using either Answer-
+Consistency for verifiable reasoning tasks, or RIP 2025) for non-verifiable tasks.
+
+i
+
+cases, filtering provides further gains. For reasoning tasks, CoT-Self-Instruct generated training data
+outperforms Self-Instruct and existing datasets such as slk (Muennighoff et al.|/2025) and Open-
+MathReasoning (Moshkov et al.}/2025) across MATH500, AMC23, AIME24 and GPQA-Diamond.
+
+For non-reasoning tasks, it outperforms human data from WildChat (Zhao et al.||2024) and Self-
+Instruct, whether filtered or not, on both AlpacaEval 2 and ArenaHard. Overall, models trained with
+
+CoT-Self-Instruct generated training data provided the best results of the methods we tested.
+
+2 RELATED WORK
+
+Synthetic Data Generation Synthetic data is produced using algorithms (Saxton et al.||2019),
+generative models 2022), or simulations (Vezhnevets et al.}|/2023),
+rather than being directly created by humans (Liu et al.||2024). It presents a promising solution for
+training models, particularly in scenarios where real-world data is scarce, expensive, or difficult to
+obtain. Self-Instruct first proposed a framework that lets a language model
+be prompted with seed data as few-shot examples in order to generate new synthetic data. Such
+data has been used to then self-train language models, e.g. in the Self-Rewarding framework
+let al.|/2024). Evol Instruct proposed to increase prompt complexity by letting the
+language model re-write the original prompts with increasing complexity. Other specific methods
+of creating complex synthetic data have been proposed, for example multi-hop question answering
+
+(Lupidi et al.|/2024) or difficult reasoning questions (Yuan et al.|/2025) both grounded on documents.
+2025
+
+Synthetic data has also been used to help train agents ( 2025) and tool-
+
+use models (Mekala et al.||2024), and for rewriting pre-training data (Maini et al.||2024
+2025).
+
+Synthetic Data Selection Data selection is a critical component for post-training with synthetic
+data (and for data in general). Previously, LLM training was regarded as largely dependent on the
+size of available training data |2022b). More
+recent work has revealed that training on a smaller yet higher-quality curated set of prompts tends to
+be more effective in improving models’ both instruction following and reasoning capabilities
+
+2024 2024}/Muennighoff et al.|/2025 2025). In addition to preprocessing
+
+--- Page 3 ---
+techniques such as deduplication of similar prompts using similarity metrics such as ROUGE-L
+similarity score or clustering (2023), as language models become
+more powerful, prompt curation can also be facilitated by using LLMs themselves as a quality judge.
+Recent work studies employing powerful language models to measure the complexity, diversity and
+quality of instructions
+[2023a). The success of RLHF for post-training (Stiennon et al]
+2024) has attracted more attention to collecting large scale and high quality preference data. Most
+work involving preference optimization employs existing methods derived from pretraining and
+instruction-tuning (Touvron et al.|[2023][Muennighoff et al.|[2025), such as deduplication, clustering,
+
+quality classifiers or filtering heuristics. Rejecting Instruction Preferences (RIP) 2025) is
+a recent method that gives strong performance by leveraging reward models based on the LLM
+
+responses to filter prompts. For verifiable reasoning tasks, Self-Consistency filtering
+2024) has also been shown to be a high quality curation method by rejecting prompts where LLM
+solutions show no agreement, as the task is either incorrectly labeled or too difficult.
+
+3. CHAIN-OF-THOUGHT(COT)-SELF-INSTRUCT
+
+(CoT)-Self-Instruct is an approach to generate high quality synthetic data for training using rea-
+soning. We first assume access to a language model, and a small amount of high quality human-
+annotated seed data. We consider both verifiable reasoning domains, and non-verifiable general
+instruction following. Our approach involves two stages:
+
+1. Synthetic Instruction Creation with Chain-of-Thought (CoT): given sample human-
+annotated seed instructions, we instruct the LLM to reason step by step to come up with
+instructions of similar complexity and domain.
+
+2. Synthetic Instruction Curation: we curate the generated synthetic data to keep only high-
+quality instructions for self-training.
+
+We then train LLMs using the generated high quality synthetic instructions. We describe each stage
+in turn.
+
+3.1 SYNTHETIC INSTRUCTION CREATION VIA COT
+
+The process of CoT-Self-Instruct data creation starts with a small set of seed instructions as the
+instruction pool. Multiple instructions are sampled at random from the instruction pool, and then
+used to few-shot prompt a language model to generate a series of intermediate reasoning steps,
+followed by a new instruction. Unlike standard Self-Instruct which directly
+prompts the model to write new instructions given a list of seed instructions, each time we show the
+LLM an N-shot set of sample instructions, we first ask it to carefully analyze the given instructions,
+such as domain, complexity and purpose. After analyzing the seed instructions, reflecting on what
+makes them high quality prompts, the LLM is prompted to reason step by step to come up with a plan
+to generate a new self-contained instruction that is of similar quality and complexity as the given seed
+instructions, and ultimately to output the final synthetic instruction satisfying these requirements in
+a strict answer format.
+
+Verifiable reasoning tasks For reasoning tasks where there is a deterministic answer which we
+can compare against to generate verifiable rewards during training, we instruct the LLM to use
+reasoning to generate both an instruction and the verifiable target. The prompt we used for CoT-
+
+Self-Instruct on reasoning tasks is given in
+
+General instruction following tasks For tasks involving general instruction-following with open-
+ended responses, we direct the LLM to use reasoning to generate only the instruction, not the re-
+sponse itself. In these instances, later during training on this synthetic data we utilize a reward
+model to assess the responses, eliminating the need for a reference answer. The prompt we used for
+CoT-Self-Instruct on general instruction following tasks is given in[Figure 3] Seed prompt pools for
+instruction-following typically include various different domains. When selecting few-shot prompts,
+for example combining prompts from storytelling and coding could result in unnatural synthetic
+
+--- Page 4 ---
+Figure 2: CoT-Self-Instruct prompt generation template for verifiable reasoning tasks.
+
+You are a reasoning question generator assistant. Your goal is to create a novel, and challenging
+reasoning question. You are provided the following seed questions:
+
+Seed Question 1: {INSTRUCTION 1}
+Seed Question 2: {INSTRUCTION 2}
+
+Your task is to:
+
+1. Write a brand-new, self-contained reasoning question that meets the following requirements:
+
+(a) The question draws inspiration from the seed question without copying it verbatim, remaining novel
+and of comparable difficulty.
+
+(b) The question’s final answer should be a single, unambiguous scalar value (e.g., an integer, reduced
+fraction, exact radical), or another answer type that can be verified in one step (e.g., ‘yes/no,’ a choice
+from A to D).
+
+2. Then reason step by step, solve the new question and format your output as follows:
+
+[New Question Begin]{your_generated_question}[New Question End]
+
+[Final Answer to New Question Begin]\boxed{your_final_answer}[Final Answer to New Question End]
+
+Figure 3: CoT-Self-Instruct prompt generation template for general instruction following tasks.
+
+You are a prompt generator assistant. Your goal is to create diverse and creative synthetic prompts.
+Please follow the steps below to create synthetic prompts.
+
+Step 1: Carefully read #Prompt 1# and #Prompt 2#. Identify and list all the common elements
+between these two prompts. If no common elements are found, list the main elements from each
+prompt.
+
+Step 2: Develop a comprehensive plan based on the #Common Elements List# or #Main Ele-
+ments List# from Step 1. This plan will guide the generation of new synthetic prompts that are similar
+to the original prompts.
+
+Step 3: Execute the plan step by step and provide one #Synthetic Prompt#.
+
+Please reply strictly in the following format:
+
+- Step 1 #Common Elements List# or #Main Elements List#:
+- Step 2 #Plan#:
+
+- Step 3 #Synthetic Prompt#:
+
+#Prompt 1#:
+{INSTRUCTION 1}
+
+#Prompt 2#:
+{INSTRUCTION 2}
+
+prompts. To address this, we propose to first label seed prompts into categories, and then sample
+from the categories first.
+
+3.2 SYNTHETIC INSTRUCTION CURATION
+
+Even with the strongest language models, not all generated synthetic instructions are well-defined
+and answerable, or are effective in base model self-training. We therefore apply a curation step to
+select higher quality synthetic instructions from the pool of generated data for final post-training
+with RL.
+
+--- Page 5 ---
+Verifiable reasoning tasks We propose Answer-Consistency to filter and retain only high quality
+data. Given the task instruction, we first instruct the LLM to generate K responses and take the
+majority response. We then reject the data example and remove it from the training pool if the
+majority response does not match the target answer in the synthetic data example generated by CoT-
+Self-Instruct (i.e., via [Figure 2). Because the target answer from CoT-Self-Instruct is generated
+with extensive reasoning steps during instruction writing and question-answering this
+differs from the way a response is generated at inference time and might be more accurate. Hence,
+comparing if the two labels match gives an extra layer of filtering. We confirm in our experiments
+
+that Answer-Consistency is superior to standard Self-Consistency filtering (Prasad et al.||2024).
+
+General instruction following tasks For non-verifiable tasks, the Answer-Consistency method is
+not applicable. Instead, we employ the Rejecting Instruction Preferences (RIP) method as proposed
+by [Yu et al.|(2025). In this method, for a given task instruction, A’ responses are generated, and
+each response is evaluated using a reward model (RM), resulting in a score for each response. The
+filtering process is then based on the distribution of these scores. In our setting we use the lowest
+score among these /C responses to represent the score of the synthetic prompt. We then filter the data
+by selecting only those prompts with the higher scores. Notably, this approach can also be applied
+to verifiable tasks, and we conduct experiments in that context as well.
+
+3.3. SELF-TRAINING WITH SYNTHETIC DATA
+
+After generating the synthetic training data, we can conduct RL training on the set of generated
+instructions. We compare the performance of self-trained LLMs with models trained on human-
+annotated data and on seed instructions in reasoning and non-reasoning domains respectively. For
+verifiable reasoning tasks, we use GRPO (Shao et al.| /2024), and for general instruction following
+we consider both offline DPO (Rafailov et al.||2024) and online DPO, which can perform much
+
+better, see e.g. |Lanchantin et al.
+
+4 EXPERIMENTAL SETUP
+
+We study the effectiveness of our synthetic prompt generation approach for reasoning and non-
+reasoning domains along the following two axes: synthetic prompt generation, and prompt curation.
+
+4.1 REASONING
+
+Seed Instructions We use s1k (Muennighoff et al.|/2025) reasoning instructions as our seed rea-
+
+soning tasks. The s1k dataset consists of 1000 high-quality, diverse and difficult reasoning prompts.
+To conduct self-training with verifiable rewards we select a subset of s1k consisting of 893 verifi-
+able reasoning instructions by filtering out theorem-proving questions and only keeping those that
+yield a scalar, single-valued, or simple closed-form answers that can be easily verified (such as 1, A,
+
+False, se), We then use this subset as the seed instruction pool to generate more verifiable
+
+reasoning instructions.
+
+Prompt Generation The CoT-Self-Instruct template is given in [Figure 2] and the baseline Self-
+Instruct method is given in Appendix|Figure 6] To evaluate how CoT-Self-Instruct compares to base-
+lines for generating verifiable reasoning tasks, we apply these methods to Qwen3-4B-Base models,
+Qwen3-4B model with Think mode and Qwen3-4B model with NoThink mode (2025).
+We use temperature = 0.7 and top-p=0.8 for Qwen3-4B-Base and Qwen3-4B (NoThink mode), and
+temperature = 0.6 and top-p=0.95 for Qwen3-4B (Think mode).
+
+RLVR Training All our reasoning experiments use GRPO training initialized from Qwen3-4B-
+Base with reinforcement learning from rule-based verifiable rewards (RLVR). For hyperparameters,
+we use a cosine learning rate scheduler with a peak value of le — 6 and adopt the AdamW optimizer
+for the policy model. We set the number of training epochs to 40 with a batch size of 128. For
+rollouts, we sample 16 rollouts for each prompt with temperature = 0.6 and top-p=0.95, with a
+
+--- Page 6 ---
+maximum length of 4096 tokens. All GRPO experiments are conducted with VeRL(Sheng et al.
+
+and Math-Verify|']as verifier.
+
+Baselines & Variations We construct targets for Self-Instruct and CoT-Self-Instruct when build-
+ing the generated instructions. As a baseline, we also train on the original s1k prompts rather than
+
+synthetic data, in that case we use the public available DeepSeek R1 2025) thinking
+solution from simplescaling/s1K-1.1 to build targets. We also compare to training on OpenMath-
+
+Reasoning which consists of 10k prompts (Moshkov et al.||2025) with publicly available solutions
+by DeepSeek-R1 and QwQ-32B. We also explore some alternative ways of filtering data or con-
+structing targets, explored as variations on our main experiments:
+
+¢ Self-Consistency filtering: generating responses KC times with random seeds and then se-
+lecting the majority-voted answer as the target or rejecting the example if the majority
+answer receives fewer votes than a given threshold (50% in our main experiments).
+
+* RIP filtering: we use the infly/INF-ORM-Llama3.1-70B (Minghao Yang||2024) RM.
+
+¢ Best-of-K targets: constructing targets by selecting the highest scored answer out of K
+responses using INF-ORM-Llama3.1-70B RM.
+
+Evaluation We evaluate using Math500 (Hendrycks et al.| {2021} |Lightman et al.||2023), AIME
+2024, AMC 23, and GPQA Diamond (Rein et al.||2024). We use temperature 0.6 and top-p 0.95 to
+
+generate predictions. For each problem we generate N = 16 solutions and report average accuracy.
+
+4.2 NON-VERIFIABLE INSTRUCTION FOLLOWING
+
+Seed Instructions We use the Wildchat-RIP-Filtered-by-8b-Llama datasef?| which includes 4k
+high-quality prompts filtered from 20k raw wildchat prompts as our seed prompts. Unlike in some
+reasoning tasks, this data includes a variety of different domains. Combining, for instance, prompts
+from storytelling and coding as few-shot examples could result in generating unnatural synthetic
+prompts. To address this, we categorized all seed data into 8 distinct categories. During sampling,
+we select 2 seed prompts from the same category to serve as few-shot prompts. Our seed data spans
+8 categories: Writing & Storytelling, Technical & Programming, Creative & Design, Data & Analy-
+sis, Education & Research, Communication & Support, Business & Marketing, and Miscellaneous.
+
+Prompt Generation We evaluate how CoT-Self-Instruct compares to baselines for generating
+non-verifiable instruction-following tasks by applying these methods using LLama 3.1-8B-Instruct.
+The CoT-Self-Instruct template is given in[Figure 3] and the baseline Self-Instruct method is given
+in[Figure 4] We also experiment with a prompt that lies between the two methods by generating a
+short rather than long CoT, given in|Figure 5| For RIP filtering, we use the Athene-RM-8B model"
+reward model over 32 responses.
+
+DPOTraining We train via DPO starting from LLama 3.1-8B-Instruct, leveraging the fairseq2
+library (Balioglu\/2023). We use a batch size of 64 and learning rate of 1e—6 with dropout rate of 0.0
+and a ( value of 0.1 throughout the experiments. For each prompt, we generate 64 responses. These
+responses are then annotated with Athene-RM-8B to select pairs. Compared to human prompts, our
+synthetic prompts tend to be more complex, resulting in longer average response lengths, which can
+lead to length explosion. During DPO training, the evaluation judge often favors longer responses,
+potentially causing response lengths to increase over time (Yuan et al.| et al. (2024) ). To mitigate this
+issue, we adopted the approach outlined by[Wu et al.|(2024), which ee pining the reward
+score with length information to determine the preferred response. This method ensures that shorter
+responses are selected when scores are similar. We applied a length normalization coefficient of 0.2
+for the length-normalized reward. This is applied for all methods, in each case sampling 5k DPO
+pairs.
+
+https://huggingface.co/Nexusflow/Athene-RM- 8B
+
+--- Page 7 ---
+Table 1: CoT-Self-Instruct results on reasoning tasks, comparing to baselines, fine-tuning Qwen3-
+4B-Base with GRPO. For Self-Instruct and CoT-Self-Instruct the synthetic data (including targets)
+is constructed with Qwen3-4B. We report pass@1 averaged over 16 seeds. CoT-Self-Instruct gen-
+erates synthetic data that outperforms existing prompt training sets and the Self-Instruct method,
+particularly when applying our data filtering methods.
+
+MATH AIME AMC GPQA
+
+# Train 500 24 23 Diamond Avg. t
+Qwen3-4B-Base (Zero-Shot) - 67.4 10.6 42.0 24.2 36.1
+sIk Prompts + (R1) Gold Label 893 68.6 18.5 51.3 40.1 44.6
+OpenMathReasoning Prompts + Gold Label 10,000 79.0 13.3 62.5 35.4 47.5
+Self-Instruct 5000 81.1 16.3 58.1 42.5 49.5
++ Self-Consistency Filter 3467 83.6 18.5 68.5 44.1 53.6
++ RIP Filter 2254 84.5 21.2 65.9 45.5 54.5
+CoT-Self-Instruct 5000 84.9 20.4 62.2 44.4 53.0
++ Self-Consistency Filter 4034 85.2 22.5 67.8 44.9 55.1
++ RIP Filter 2419 85.7 24.4 70.5 44.4 56.2
++ Answer-Consistency Filter 2926 86.5 24.6 72.3 45.5 57.2
++ Answer-Consistency Filter (more data) 10,000 86.7 26.7 73.8 47.4 58.7
+
+Online DPO training We also assess online DPO by following the training settings described by
+[Lanchantin et al.|(2025). We use the default sampling parameters (temperature=1.0, top-p=1.0) to
+generate exploration rollouts. We train models using the £airseq2 library (Balioglu\/2023), where
+model inference is performed with the v11m library (Kwon et al.|/2023).
+
+Evaluation To evaluate the helpfulness and quality of responses, we employ AlpacaEval 2.0
+and Arena-Hard (Li et al.|/2024bJa). These are robust instruction-
+following benchmarks that show a strong correlation with user preferences. Originally, AlpacaEval
+used GPT-4 Preview (11/06) as the judge, while Arena-Hard utilized GPT-4.1 for its leaderboard.
+However, since we do not have access to these specific OpenAI API versions, we conduct our tests
+using two alternative (and newer) judges: GPT-4-turbo and GPT-4o. For generating predictions, we
+set the decoding temperature to 0.6 and the top-p to 0.9, aligning with the commonly used values of
+the seed model in our study. Our validation set used for checkpoint selection is based on a held-out
+set of 470 examples, comprising 253 validation examples from|Li et al.|(2023a) and 218 Evol-Test
+
+set examples from|{Xu et al.| (2023).
+5 EXPERIMENTAL RESULTS
+
+Our main results are given in|Table 1| for reasoning tasks and |Table 2| for non-reasoning tasks.
+Various other variations and ablations are given in the Appendix.
+
+5.1 REASONING TASKS
+
+Synthetic instructions generated by CoT-Self-Instruct outperform Self-Instruct In
+where Qwen3-4B-Base models are GRPO trained on Qwen3-4B generated prompts and responses,
+CoT-Self-Instruct achieves an average accuracy of 53.0%, outperforming Self-Instruct which yields
+49.5% (both without data filtering). As shown in Appendix[Table 8]similar trends are observed when
+training on Qwen3-4B-base, rather than Qwen3-4B, generated targets.
+
+Filtered CoT-Self-Instruct outperforms filtered Self-Instruct Applying filtering methods to
+both CoT-Self-Instruct and Self-Instruct improves both methods, despite the overall amount of train-
+ing data decreasing, see [Table 1] That is, it is better to have high quality synthetic data than more
+data that is lower quality. However, we find that CoT-Self-Instruct still maintains its advantage over
+Self-Instruct, whichever filtering method is used. E.g. with Self-Consistency Filtering Self-Instruct
+improves from 49.5% — 53.6%, while CoT-Self-Instruct improves from 53.0% — 55.1%. Similar
+findings are observed with RIP filtering as well. We find empirically that the optimal filtering criteria
+is to filter out prompts with lower than 50% RIP-Scores.
+
+--- Page 8 ---
+Table 2: CoT-Self-Instruct results on general instruction following tasks, comparing to base-
+lines, fine-tuning LLama 3.1-8B-Instruct with offline and online DPO. CoT-Self-Instruct generates
+synthetic data that outperforms human-written prompt training sets and the Self-Instruct method,
+particularly when applying our data filtering methods. Both AlpacaEval 2 and ArenaHard are eval-
+uated with two kinds of judge: GPT-4 Turbo and GPT-4o0, with similar conclusions.
+
+Training AlpacaEval LC Winrate ArenaHard Score
+
+Method GPT-4 Turbo GPT-4o GPT-4 Turbo GPT-4o0 Avg. T
+LLama 3.1-8B-Instruct DPO 27.3 21.3 32.0 27.8 27.1
+Human prompts (WildChat) DPO 49.1 43.0 52.7 42.6 46.8
++ RIP Filter DPO 57.6 44.5 59.1 41.7 50.7
+Self-Instruct DPO 52.9 46.0 51.8 39.2 47.4
++ RIP Filter DPO 55.2 46.1 55.6 39.5 49.1
+CoT-Self-Instruct DPO 58.5 48.6 62.0 46.7 53.9
++ RIP Filter DPO 63.2 49.4 60.2 45.8 54.7
+Human prompts (Wildchat) Online DPO 80.1 62.7 64.4 45.5 63.1
+CoT-Self-Instruct + RIP Online DPO 83.2 68.7 67.3 49.3 67.1
+
+High quality synthetic prompts generated by CoT-Self-Instruct significantly outperform seed
+instructions and other publicly available reasoning prompts CoT-Self-Instructions outperform
+slk, see[Table I] where models trained on 2926 filtered CoT-Self-Instructions achieve 57.2%. This
+is much higher than the 44.6% achieved with s1k prompts using R1 labels (and sik results are even
+lower, 43.8%, with Qwen3-4B labels, see Appendix [Table 5). Filtering CoT-Self-Instruction to the
+same training size as s1k yields 54.2%, still significantly higher, see Appendix [Table 3] These results
+also outperform using 1OK OpenMath-Reasoning instructions with gold labels, which gives 47.5%.
+Increasing the CoT-Self-Instruction with Answer-Consistency filtering data to 10k improves results
+further with an average of 58.7%. Overall, CoT-Self-Instruct with Answer-Consistency filter gives
+the best performance of all existing datasets or synthetic data construction methods tested.
+
+5.2 NON-VERIFIABLE INSTRUCTION FOLLOWING TASKS
+
+Synthetic instructions generated by CoT-Self-Instruct outperform Self-Instruct For non-
+reasoning tasks, allowing the model to create a plan beforehand with CoT-Self-Instruct also sig-
+nificantly enhances the quality of synthetic data, see Averaged over AlpacaEval 2 and
+ArenaHard, CoT-Self-Instruct achieves an average of 53.9 vs. Self-Instruct’s 47.4, both without fil-
+tering and training with DPO. We also observe that asking for longer CoT reasoning chains provides
+more gains that shorter CoTs, see Appendix [Table 11] further emphasizing the need for reasoning
+when producing synthetic data.
+
+RIP Filtering improves CoT-Self-Instruct results further Applying the RIP filter to each
+method we find it to be effective across all types of synthetic generation methods tested. This
+boosts the CoT-Self-Instruct results from 53.9 — 54.7. RIP also improves Self-Instruct as well,
+from 47.4 — 49.1, but still underperforming CoT-Self-Instruct. We can also apply RIP filtering to
+human prompts from WildChat in a similar manner. In this case we actually see a larger boost, from
+46.8 — 50.7. We attribute this to human data being relatively noisy compared to synthetic data,
+which can make filtering more important.
+
+High quality synthetic prompts generated by CoT-Instruct significantly outperform human
+prompts Our best performing DPO-trained model is achieved by using CoT-Self-Instruct with
+RIP data filtering, yielding 54.7. This outperforms LLama 3.1-8B-Instruct (27.1) or training on hu-
+man prompts from WildChat with (46.8) or without RIP data filtering (50.7). We also performed
+experiments with online DPO, which improved results further. In that setting human prompts from
+WildChat obtain 63.1 while CoT-Self-Instruct+RIP obtains 67.1. Overall, we find CoT-Self-Instruct
+with RIP filtering to yield the best performance over all existing datasets or synthetic data construc-
+tion methods tested.
+
+--- Page 9 ---
+6 CONCLUSION
+
+In this paper, we propose CoT-Self-Instruct, a synthetic data creation and curation pipeline that in-
+structs LLMs to plan and reason to come up with new synthetic prompts given seed instructions,
+and then filters them for quality, either using Answer-Consistency for verifiable tasks or RIP fil-
+tering when they are not verifiable. We show that applying our method improves models’ abilities
+in both the reasoning and non-reasoning domains by creating high quality synthetic instructions
+for RL training, surpassing existing seed human-annotated instructions and public training sets on
+challenging benchmarks.
+
+REFERENCES
+
+Marah Abdin, Jyoti Aneja, Harkirat Behl, Sébastien Bubeck, Ronen Eldan, Suriya Gunasekar,
+Michael Harrison, Russell J Hewett, Mojan Javaheripi, Piero Kauffmann, et al. Phi-4 techni-
+cal report. arXiv preprint arXiv:2412.08905, 2024.
+
+Can Balioglu. fairseq2, 2023. URL http://github.com/facebookresearch/
+
+fairseq2
+
+Vadim Borisov, Kathrin SeBler, Tobias Leemann, Martin Pawelczyk, and Gjergji Kasneci. Language
+models are realistic tabular data generators. arXiv preprint arXiv:2210.06280, 2022.
+
+Lichang Chen, Jiuhai Chen, Tom Goldstein, Heng Huang, and Tianyi Zhou. Instructzero: Efficient
+instruction optimization for black-box large language models. arXiv preprint arXiv:2306.03082,
+2023.
+
+Lichang Chen, Shiyang Li, Jun Yan, Hai Wang, Kalpa Gunaratna, Vikas Yadav, Zheng Tang, Vijay
+Srinivasan, Tianyi Zhou, Heng Huang, et al. AlpaGasus: Training a better alpaca with fewer data.
+In The Twelfth International Conference on Learning Representations, 2024. URL [ht tps:)
+
+//openreview.net/forum?id=FdVxgSJhvz
+
+Ning Ding, Yulin Chen, Bokai Xu, Yujia Qin, Zhi Zheng, Shengding Hu, Zhiyuan Liu, Maosong
+Sun, and Bowen Zhou. Enhancing chat language models by scaling high-quality instructional
+conversations. arXiv preprint arXiv:2305.14233, 2023.
+
+Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek Kadian, Ahmad Al-Dahle, Aiesha
+Letman, Akhil Mathur, Alan Schelten, Amy Yang, Angela Fan, et al. The llama 3 herd of models.
+arXiv preprint arXiv:2407.21783, 2024.
+
+Yann Dubois, Bala4zs Galambosi, Percy Liang, and Tatsunori B Hashimoto. Length-controlled al-
+pacaeval: A simple way to debias automatic evaluators. arXiv preprint arXiv:2404.04475, 2024.
+
+Saumya Gandhi, Ritu Gala, Vijay Viswanathan, Tongshuang Wu, and Graham Neubig. Better syn-
+thetic data by retrieving and transforming existing datasets. arXiv preprint arXiv:2404.14361,
+2024.
+
+Fabrizio Gilardi, Meysam Alizadeh, and Maél Kubli. Chatgpt outperforms crowd workers for text-
+annotation tasks. Proceedings of the National Academy of Sciences, 120(30):e2305016120, 2023.
+
+Biyang Guo, Xin Zhang, Ziyuan Wang, Minqi Jiang, Jinran Nie, Yuxuan Ding, Jianwei Yue, and Yu-
+peng Wu. How close is chatgpt to human experts? comparison corpus, evaluation, and detection.
+arXiv preprint arXiv:2301.07597, 2023.
+
+Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Ruoyu Zhang, Runxin Xu, Qihao Zhu,
+Shirong Ma, Peiyi Wang, Xiao Bi, et al. Deepseek-r1: Incentivizing reasoning capability in Ilms
+via reinforcement learning. arXiv preprint arXiv:2501.12948, 2025.
+
+Dan Hendrycks, Collin Burns, Saurav Kadavath, Akul Arora, Steven Basart, Eric Tang, Dawn Song,
+and Jacob Steinhardt. Measuring mathematical problem solving with the math dataset. arXiv
+preprint arXiv:2103.03874, 2021.
+
+Tom Hosking, Phil Blunsom, and Max Bartolo. Human feedback is not gold standard. arXiv preprint
+arXiv:2309. 16349, 2023.
+
+--- Page 10 ---
+Alexey Kurakin, Natalia Ponomareva, Umar Syed, Liam MacDermed, and Andreas Terzis. Harness-
+ing large-language models to generate private synthetic text. arXiv preprint arXiv:2306.01684,
+2023.
+
+Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying Sheng, Lianmin Zheng, Cody Hao Yu, Joseph E.
+Gonzalez, Hao Zhang, and Ion Stoica. Efficient memory management for large language model
+serving with pagedattention. In Proceedings of the ACM SIGOPS 29th Symposium on Operating
+Systems Principles, 2023.
+
+Jack Lanchantin, Angelica Chen, Janice Lan, Xian Li, Swarnadeep Saha, Tianlu Wang, Jing Xu,
+Ping Yu, Weizhe Yuan, Jason E Weston, et al. Bridging offline and online reinforcement learning
+for Ilms. arXiv preprint arXiv:2506.21495, 2025.
+
+Tianle Li, Wei-Lin Chiang, Evan Frick, Lisa Dunlap, Tianhao Wu, Banghua Zhu, Joseph E Gon-
+zalez, and Ion Stoica. From crowdsourced data to high-quality benchmarks: Arena-hard and
+benchbuilder pipeline. arXiv preprint arXiv:2406.11939, 2024a.
+
+Tianle Li, Wei-Lin Chiang, Evan Frick, Lisa Dunlap, Banghua Zhu, Joseph E. Gonzalez, and Ion
+Stoica. From live data to high-quality benchmarks: The arena-hard pipeline, April 2024b. URL
+
+https://imsys.org/blog/2024-04-19-arena-hard
+
+Xian Li, Ping Yu, Chunting Zhou, Timo Schick, Omer Levy, Luke Zettlemoyer, Jason Weston, and
+Mike Lewis. Self-alignment with instruction backtranslation. arXiv preprint arXiv:2308.06259,
+2023a.
+
+Xuechen Li, Tianyi Zhang, Yann Dubois, Rohan Taori, Ishaan Gulrajani, Carlos Guestrin, Percy
+Liang, and Tatsunori B. Hashimoto. Alpacaeval: An automatic evaluator of instruction-following
+
+models. https://github.com/tatsu—-lab/alpaca_eval) 5 2023b.
+
+Hunter Lightman, Vineet Kosaraju, Yuri Burda, Harrison Edwards, Bowen Baker, Teddy Lee, Jan
+Leike, John Schulman, Ilya Sutskever, and Karl Cobbe. Let’s verify step by step. In The Twelfth
+International Conference on Learning Representations, 2023.
+
+Ruibo Liu, Jerry Wei, Fangyu Liu, Chenglei Si, Yanzhe Zhang, Jinmeng Rao, Steven Zheng, Daiyi
+Peng, Diyi Yang, Denny Zhou, et al. Best practices and lessons learned on synthetic data. arXiv
+preprint arXiv:2404.07503, 2024.
+
+Wei Liu, Weihao Zeng, Keqing He, Yong Jiang, and Junxian He. What makes good data for align-
+ment? a comprehensive study of automatic data selection in instruction tuning. arXiv preprint
+arXiv:2312.15685, 2023.
+
+Lin Long, Rui Wang, Ruixuan Xiao, Junbo Zhao, Xiao Ding, Gang Chen, and Haobo Wang.
+On Ilms-driven synthetic data generation, curation, and evaluation: A survey. arXiv preprint
+arXiv:2406.15126, 2024.
+
+Keming Lu, Hongyi Yuan, Zheng Yuan, Runji Lin, Junyang Lin, Chuanqi Tan, Chang Zhou, and
+Jingren Zhou. # instag: Instruction tagging for analyzing supervised fine-tuning of large language
+models. In The Twelfth International Conference on Learning Representations, 2023.
+
+Alisia Lupidi, Carlos Gemmell, Nicola Cancedda, Jane Dwivedi-Yu, Jason Weston, Jakob Foer-
+ster, Roberta Raileanu, and Maria Lomeli. Source2synth: Synthetic data generation and curation
+grounded in real data sources. arXiv preprint arXiv:2409.08239, 2024.
+
+Pratyush Maini, Skyler Seto, He Bai, David Grangier, Yizhe Zhang, and Navdeep Jaitly. Rephras-
+ing the web: A recipe for compute and data-efficient language modeling. arXiv preprint
+arXiv:2401.16380, 2024.
+
+Dheeraj Mekala, Jason Weston, Jack Lanchantin, Roberta Raileanu, Maria Lomeli, Jingbo Shang,
+and Jane Dwivedi-Yu. Toolverifier: Generalization to new tools via self-verification. arXiv
+preprint arXiv:2402.14158, 2024.
+
+Yu Meng, Jiaxin Huang, Yu Zhang, and Jiawei Han. Generating training data with language models:
+Towards zero-shot language understanding. Advances in Neural Information Processing Systems,
+35:462-477, 2022.
+
+10
+
+--- Page 11 ---
+URL
+
+Xiaoyu Tan Minghao Yang, Chao Qu.
+ggingf /infly
+co/infly/INF- ORM-Llama3.1- 70B)
+
+Swaroop Mishra, Daniel Khashabi, Chitta Baral, and Hannaneh Hajishirzi. Cross-task generalization
+via natural language crowdsourcing instructions. arXiv preprint arXiv:2104.08773, 2021.
+
+Inf-orm-llama3.1-70b, 2024. [https://
+
+Ivan Moshkov, Darragh Hanley, Ivan Sorokin, Shubham Toshniwal, Christof Henkel, Benedikt
+Schifferer, Wei Du, and Igor Gitman. Aimo-2 winning solution: Building state-of-the-art math-
+ematical reasoning models with openmathreasoning dataset. arXiv preprint arXiv:2504.16891,
+2025.
+
+Niklas Muennighoff, Zitong Yang, Weijia Shi, Xiang Lisa Li, Li Fei-Fei, Hannaneh Hajishirzi, Luke
+Zettlemoyer, Percy Liang, Emmanuel Candés, and Tatsunori Hashimoto. s1: Simple test-time
+scaling. arXiv preprint arXiv:2501.19393, 2025.
+
+Thao Nguyen, Yang Li, Olga Golovneva, Luke Zettlemoyer, Sewoong Oh, Ludwig Schmidt, and
+Xian Li. Recycling the web: A method to enhance pre-training data quality and quantity for
+language models. arXiv preprint arXiv:2506.04689, 2025.
+
+Archiki Prasad, Weizhe Yuan, Richard Yuanzhe Pang, Jing Xu, Maryam Fazel-Zarandi, Mohit
+Bansal, Sainbayar Sukhbaatar, Jason Weston, and Jane Yu. Self-consistency preference opti-
+mization. arXiv preprint arXiv:2411.04109, 2024.
+
+Rafael Rafailov, Archit Sharma, Eric Mitchell, Christopher D Manning, Stefano Ermon, and Chelsea
+Finn. Direct preference optimization: Your language model is secretly a reward model. Advances
+in Neural Information Processing Systems, 36, 2024.
+
+David Rein, Betty Li Hou, Asa Cooper Stickland, Jackson Petty, Richard Yuanzhe Pang, Julien Di-
+rani, Julian Michael, and Samuel R Bowman. Gpqa: A graduate-level google-proof q&a bench-
+mark. In First Conference on Language Modeling, 2024.
+
+David Saxton, Edward Grefenstette, Felix Hill, and Pushmeet Kohli. Analysing mathematical rea-
+soning abilities of neural models. arXiv preprint arXiv: 1904.01557, 2019.
+
+Zhihong Shao, Peiyi Wang, Qihao Zhu, Runxin Xu, Junxiao Song, Xiao Bi, Haowei Zhang,
+Mingchuan Zhang, YK Li, Y Wu, et al. Deepseekmath: Pushing the limits of mathematical
+reasoning in open language models. arXiv preprint arXiv:2402.03300, 2024.
+
+Guangming Sheng, Chi Zhang, Zilingfeng Ye, Xibin Wu, Wang Zhang, Ru Zhang, Yanghua Peng,
+Haibin Lin, and Chuan Wu. Hybridflow: A flexible and efficient rlhf framework. arXiv preprint
+arXiv: 2409.19256, 2024.
+
+Avi Singh, John D Co-Reyes, Rishabh Agarwal, Ankesh Anand, Piyush Patil, Xavier Garcia, Peter J
+Liu, James Harrison, Jaechoon Lee, Kelvin Xu, et al. Beyond human data: Scaling self-training
+for problem-solving with language models. arXiv preprint arXiv:2312.06585, 2023.
+
+Nisan Stiennon, Long Ouyang, Jeffrey Wu, Daniel Ziegler, Ryan Lowe, Chelsea Voss, Alec Radford,
+Dario Amodei, and Paul F Christiano. Learning to summarize with human feedback. Advances
+in Neural Information Processing Systems, 33:3008—3021, 2020.
+
+Hugo Touvron, Louis Martin, Kevin Stone, Peter Albert, Amjad Almahairi, Yasmine Babaei, Niko-
+lay Bashlykov, Soumya Batra, Prajjwal Bhargava, Shruti Bhosale, et al. Llama 2: Open founda-
+tion and fine-tuned chat models. arXiv preprint arXiv:2307.09288, 2023.
+
+Alexander Sasha Vezhnevets, John P Agapiou, Avia Aharon, Ron Ziv, Jayd Matyas, Edgar A
+Duéfiez-Guzman, William A Cunningham, Simon Osindero, Danny Karmon, and Joel Z Leibo.
+Generative agent-based modeling with actions grounded in physical, social, or digital space using
+concordia. arXiv preprint arXiv:2312.03664, 2023.
+
+Yizhong Wang, Yeganeh Kordi, Swaroop Mishra, Alisa Liu, Noah A Smith, Daniel Khashabi, and
+Hannaneh Hajishirzi. Self-instruct: Aligning language models with self-generated instructions.
+arXiv preprint arXiv:2212.10560, 2022a.
+
+11
+
+--- Page 12 ---
+Yizhong Wang, Swaroop Mishra, Pegah Alipoormolabashi, Yeganeh Kordi, Amirreza Mirzaei, An-
+jana Arunkumar, Arjun Ashok, Arut Selvan Dhanasekaran, Atharva Naik, David Stap, et al.
+Super-naturalinstructions: Generalization via declarative instructions on 1600+ nlp tasks. arXiv
+preprint arXiv:2204.07705, 2022b.
+
+Jason Wei, Maarten Bosma, Vincent Y Zhao, Kelvin Guu, Adams Wei Yu, Brian Lester, Nan Du,
+Andrew M Dai, and Quoc V Le. Finetuned language models are zero-shot learners. arXiv preprint
+arXiv:2109.01652, 2021.
+
+Tianhao Wu, Weizhe Yuan, Olga Golovneva, Jing Xu, Yuandong Tian, Jiantao Jiao, Jason Weston,
+and Sainbayar Sukhbaatar. Meta-rewarding language models: Self-improving alignment with
+llm-as-a-meta-judge. arXiv preprint arXiv:2407.19594, 2024.
+
+Can Xu, Qingfeng Sun, Kai Zheng, Xiubo Geng, Pu Zhao, Jiazhan Feng, Chongyang Tao, and
+Daxin Jiang. Wizardlm: Empowering large language models to follow complex instructions.
+arXiv preprint arXiv:2304.12244, 2023.
+
+An Yang, Anfeng Li, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu,
+Chang Gao, Chengen Huang, Chenxu Lv, et al. Qwen3 technical report. arXiv preprint
+arXiv:2505.09388, 2025.
+
+Yixin Ye, Zhen Huang, Yang Xiao, Ethan Chern, Shijie Xia, and Pengfei Liu. Limo: Less is more
+for reasoning. arXiv preprint arXiv:2502.03387, 2025.
+
+Ping Yu, Weizhe Yuan, Olga Golovneva, Tianhao Wu, Sainbayar Sukhbaatar, Jason Weston, and
+Jing Xu. Rip: Better models by survival of the fittest prompts. arXiv preprint arXiv:2501.18578,
+2025.
+
+Weizhe Yuan, Richard Yuanzhe Pang, Kyunghyun Cho, Sainbayar Sukhbaatar, Jing Xu, and Jason
+Weston. Self-rewarding language models. arXiv preprint arXiv:2401.10020, 3, 2024.
+
+Weizhe Yuan, Jane Yu, Song Jiang, Karthik Padthe, Yang Li, Ilia Kulikov, Kyunghyun Cho, Dong
+Wang, Yuandong Tian, Jason E Weston, et al. Naturalreasoning: Reasoning in the wild with 2.8
+m challenging questions. arXiv preprint arXiv:2502.13124, 2025.
+
+Zheng Yuan, Hongyi Yuan, Chengpeng Li, Guanting Dong, Keming Lu, Chuanqi Tan, Chang Zhou,
+and Jingren Zhou. Scaling relationship on learning mathematical reasoning with large language
+models. arXiv preprint arXiv:2308.01825, 2023.
+
+Weihao Zeng, Can Xu, Yingxiu Zhao, Jian-Guang Lou, and Weizhu Chen. Automatic instruction
+evolving for large language models. In Proceedings of the 2024 Conference on Empirical Methods
+in Natural Language Processing, pp. 6998-7018, 2024.
+
+Chaoning Zhang, Chenshuang Zhang, Sheng Zheng, Yu Qiao, Chenghao Li, Mengchun Zhang,
+Sumit Kumar Dam, Chu Myaet Thwal, Ye Lin Tun, Le Luang Huy, et al. A complete sur-
+vey on generative ai (aigc): Is chatgpt from gpt-4 to gpt-5 all you need? = arXiv preprint
+arXiv:2303.11717, 2023.
+
+Andrew Zhao, Yiran Wu, Yang Yue, Tong Wu, Quentin Xu, Matthieu Lin, Shenzhi Wang, Qingyun
+Wu, Zilong Zheng, and Gao Huang. Absolute zero: Reinforced self-play reasoning with zero
+data. arXiv preprint arXiv:2505.03335, 2025.
+
+Wenting Zhao, Xiang Ren, Jack Hessel, Claire Cardie, Yejin Choi, and Yuntian Deng. Wildchat:
+1m chatgpt interaction logs in the wild. arXiv preprint arXiv:2405.01470, 2024.
+
+Chunting Zhou, Pengfei Liu, Puxin Xu, Srinivasan Iyer, Jiao Sun, Yuning Mao, Xuezhe Ma, Avia
+Efrat, Ping Yu, Lili Yu, et al. Lima: Less is more for alignment. Advances in Neural Information
+Processing Systems, 36, 2024.
+
+Yifei Zhou, Sergey Levine, Jason Weston, Xian Li, and Sainbayar Sukhbaatar. Self-challenging
+language model agents. arXiv preprint arXiv:2506.01716, 2025.
+
+12
+
+--- Page 13 ---
+Figure 4: Self-Instruct prompt generation template for non-verifiable instruction following tasks.
+
+Below are sample tasks from user.
+1. <begin> {INSTRUCTION 1}</end>
+2. <begin>{INSTRUCTION 2} </end>
+
+Come up with one new task, wrapped with <begin>and </end>
+
+Figure 5: Short CoT prompt generation template for non-verifiable instruction following tasks.
+
+Below are sample tasks from user.
+1. <begin> {INSTRUCTION 1}</end>
+2. <begin>{INSTRUCTION 2} </end>
+
+Come up with one new task, wrapped with <begin>and </end>. Please provide your Chain-
+of-Thought first and then provide the new generated task.
+
+7 APPENDIX
+
+We report results when matching the training size to 893 the same as our seed tasks in|Table 3
+
+Table 3: CoT-Self-Instruct results on reasoning tasks with same size training sets, comparing
+to baselines, fine-tuning Qwen3-4B-Base with GRPO. For Self-Instruct and CoT-Self-Instruct the
+synthetic data (including targets) is constructed with Qwen3-4B. We report pass@1 averaged over
+16 seeds.
+
+4#Train MATH AIME AMC — GPQA
+
+500 24 23 Diamond Avg. fT
+Qwen3-4B-Base (Zero-Shot) - 67.4 10.6 42.0 24.2 36.1
+sIk Prompts + (R1) Gold Label 893 68.6 18.5 51.3 40.1 44.6
+Self-Instruct 893 80.5 17.2 57.3 41.3 49.1
++ Self-Consistency Filter 893 81.9 20.0 62.8 41.5 51.5
++ RIP Filter 893 82.7 21.5 61.4 43.1 52.2
+CoT-Self-Instruct 893 82.4 19.8 60.0 41.3 50.9
++ Self-Consistency Filter 893 83.2 22.7 65.1 41.6 53.1
++ RIP Filter 893 83.0 21.0 63.9 42.9 52.7
++ Answer-Consistency Filter 893 83.7 23.1 66.1 44.1 54.2
+
+We further compare CoT-Self-Instruct with other templates on reasoning tasks:
+
+¢ Self-Instruct-Then-Solve (NoCoT): prompting LLMs to first generate a question then an
+answer to its own generated question, without any thinking or CoT, see
+
+* CoT-Self-Instruct (NoSolve): prompting LLMs to reason step-by-step to generate a ques-
+tion, without giving the “reference” answer, see
+
+We report additional results with varying prompt templates below.
+
+13
+
+--- Page 14 ---
+Figure 6: Self-Instruct (standard, without CoT) prompt generation template for verifiable reasoning
+tasks.
+
+You are a reasoning question generator assistant. Your goal is to create a novel, and challenging
+reasoning question. You are provided the following seed questions:
+
+Seed Question 1: {INSTRUCTION 1}
+Seed Question 2: {INSTRUCTION 2}
+
+Your task is to write a brand-new, self-contained reasoning question that meets the following require-
+ments:
+
+1. The question draws inspiration from the seed question without copying it verbatim, remaining novel
+and of comparable difficulty.
+
+2. The question’s final answer should be a single, unambiguous scalar value (e.g., an integer, reduced
+fraction, exact radical), or another answer type that can be verified in one step (e.g., ‘yes/no,’ a choice
+from A to D).
+
+3. Do not include any solution, hint, or answer-—only the question statement itself.
+
+Please put your generated problem strictly in the format of
+[New Question Begin]{your_generated_question}[New Question End]
+
+Figure 7: CoT-Self-Instruct (No-Solve) prompt generation template for verifiable reasoning tasks
+without answering (i.e., generate a question only).
+
+You are a reasoning question generator assistant. Your goal is to create a novel, and challenging
+reasoning question. You are provided the following seed questions:
+
+Seed Question 1: {INSTRUCTION 1}
+Seed Question 2: {INSTRUCTION 2}
+
+Your task is to write a brand-new, self-contained reasoning question that meets the following require-
+ments:
+
+1. The question draws inspiration from the seed question without copying it verbatim, remaining novel
+and of comparable difficulty.
+
+2. The question’s final answer should be a single, unambiguous scalar value (e.g., an integer, reduced
+fraction, exact radical), or another answer type that can be verified in one step (e.g., ‘yes/no,’ a choice
+from A to D).
+
+3. Do not include any solution, hint, or answer-—only the question statement itself.
+
+Please reason step by step and put your generated problem strictly in the format of
+[New Question Begin]{your_generated_question}[New Question End]
+
+14
+
+--- Page 15 ---
+Figure 8: Self-Instruct-Then-Solve (i.e. No CoT) prompt generation template for verifiable reason-
+ing tasks.
+
+You are a reasoning question generator assistant. Your goal is to create a novel, and challenging
+reasoning question. You are provided the following seed questions:
+
+Seed Question 1: {INSTRUCTION 1}
+Seed Question 2: {INSTRUCTION 2}
+
+Your task is to:
+
+1. Write a brand-new, self-contained reasoning question that meets the following requirements:
+
+(a) The question draws inspiration from the seed question without copying it verbatim, remaining novel
+and of comparable difficulty.
+
+(b) The question’s final answer should be a single, unambiguous scalar value (e.g., an integer, reduced
+fraction, exact radical), or another answer type that can be verified in one step (e.g., ‘yes/no,’ a choice
+from A to D).
+
+2. Then solve the new question and format your output as follows:
+
+[New Question Begin]{your_generated_question}[New Question End]
+
+[Final Answer to New Question Begin]\boxed{your_final_answer}[Final Answer to New Question End]
+
+Table 4: Results of CoT-Self-Instruct, comparing to baselines, for reasoning tasks on targets
+sampled from Qwen3-4B. We conduct GRPO-training using Qwen3-4B-Base model on synthetic
+prompts generated by different templates, with targets sampled from Qwen3-4B. We report pass @ |
+averaged over 16 seeds. Two filter thresholds are used: SC = Self-Consistency Rate (i.e. the ratio
+majority votes over total votes) and RSc = RIP score (i.e. the quantile of minimum response score.)
+
+Filter MATH AIME AMC GPQA
+
+# Train Thres. 500 24 23 Diamond Avg.
+Self-Instruct 5000 - 81.1 16.2 58.1 42.5 49.5
++ Self-Consistency Filter 3467 sc > 0.5 83.6 18.5 68.5 44.1 53.6
++ RIP Filter 2254 RSc > 0.5 84.5 21.2 65.9 45.5 54.5
+Self-Instruct-Then-Solve (NoCoT) 5000 - TAS 9.8 47.7 39.0 42.7
++ Answer-Consistency Filter 646 - 75.6 12.9 53.9 38.1 45.1
++ Self-Consistency Filter 3369 SC> 0.5 74.8 10.8 49.8 37.5 43.2
++ RIP Filter 2162 RSc > 0.5 75.0 11.0 52.3 38.0 44.1
+CoT-Self-Instruct (NoSolve) 5000 - 84.3 20.2 65.5 43.7 53.4
++ Self-Consistency Filter 3972 sc > 0.5 84.7 24.8 67.5 44.9 55.5
++ RIP Filter 2431 RSc > 0.5 84.9 24.2 72.3 44.6 56.5
+CoT-Self-Instruct 5000 - 84.9 20.4 62.2 44.4 53.0
++ Answer-Consistency Filter 2926 - 86.5 24.6 72.3 45.5 57.2
++ Self-Consistency filter 4034 sc > 0.5 85.2 22.5 67.8 44.9 55.1
+
++ RIP filter 2491 RSc > 0.5 85.7 24.4 70.5 44.4 56.2
+
+15
+
+--- Page 16 ---
+Table 5: 893-train-size-matching results of CoT-Self-Instruct, comparing to baselines, for rea-
+soning tasks on targets sampled from Qwen3-4B: We conduct GRPO-training using Qwen3-4B-
+Base on selected s1k verifiable prompts and 893 synthetic prompts generated by different templates,
+with targets sampled from Qwen3-4B. We report pass@1 averaged over 16 seeds on MATHSOO,
+AMC23, AMIE24, GPQA-Diamond. Two filter thresholds are used: SC = Self-Consistency Rate
+(i.e. the ratio majority votes over total votes) and RSc = RIP score (i.e. the quantile of minimum
+response score.)
+
+Filter MATH AIME AMC GPQA
+
+# Train Thres. 500 24 23 Diamond Avg.
+slk Prompts
++ Qwen3-4B Target 893 - 71.3 13.7 51.5 38.7 43.8
+Self-Instruct 893 - 80.5 17.2 57.3 41.3 49.1
++ Self-Consistency Filter 893 SC > 0.5 81.9 20.0 62.8 41.5 51.5
++ RIP Filter 893 RSc > 0.5 82.7 21.5 61.4 43.1 52.2
+CoT-Self-Instruct (NoSolve) 893 - 82.5 20.2 61.7 41.4 51.4
++ Self-Consistency Filter 893 SC > 0.5 83.6 20.6 61.7 43.0 52.2
++ RIP Filter 893 RSc > 0.5 83.4 24.8 64.1 42.8 53.8
+CoT-Self-Instruct 893 - 82.4 19.8 60.0 41.3 50.9
++ Answer-Consistency Filter 893 - 83.7 23.1 66.1 44.1 54.2
++ RIP Filter 893 RSc > 0.5 83.2 22.7 65.1 41.6 53.1
++ Self-Consistency Filter 893 SC > 0.5 83.0 21.0 63.9 42.9 52.7
+
+Table 6: Results of CoT-Self-Instruct, comparing to baselines, for reasoning tasks on
+majority-voted targets sampled from Qwen3-4B model: We conduct GRPO-training using
+Qwen3-4B-Base on synthetic prompts generated by different templates, with majority-voted tar-
+gets sampled from Qwen3-4B. We report pass@1 averaged over 16 seeds. Different from [Table 4]
+we use majority voted answers by Qwen3-4B model instead of single sampled responses. The con-
+clusions are similar to[Table 4]
+
+MATH AIME AMC GPQA
+
+Majority-Voted Qwen3-4B Target # Train 500 24 23 Diamond Avg.
+Self-Instruct 5000 80.8 15.6 57.2 43.7 49.3
++ Self-Consistency Filter 3467 80.9 17.7 63.9 46.3 52.2
+CoT-Self-Instruct (NoSolve) 5000 82.9 21.9 65.3 44.4 53.6
++ Self-Consistency Filter 3972 83.7 21.3 68.8 44.2 54.5
+
+Table 7: Results of CoT-Self-Instruct, comparing to baselines, for reasoning tasks on Best-of-K
+targets sampled from Qwen3-4B model using the reward model infly INF-ORM-Llama3. 1-70B
+(2024): We conduct GRPO-training using Qwen3-4B-Base on selected s1k veri-
+fiable prompts and synthetic prompts generated by different templates with targets sampled from
+Qwen3-4B. We report pass@1 averaged over 16 seeds on MATHS00, AMC23, AMIE24, GPQA-
+Diamond.
+
+MATH AIME AMC GPQA
+
+Best-of-K Qwen3-4B Targets # Train 500 24 23 Diamond Avg.
+Self-Instruct 5000 83.8 18.8 62.0 44.4 52.2
++ RIP Filter 2254 84.1 20.8 68.4 46.6 55.0
+CoT-Self-Instruct (NoSolve) 5000 82.9 22.5 64.8 42.7 53.2
+
++ RIP Filter 3651 85.2 24.4 71.1 46.8 56.9
+
+16
+
+--- Page 17 ---
+Table 8: Results of CoT-Self-Instruct, comparing to baselines, for reasoning tasks on targets
+sampled from Qwen3-4B-Base model responses: We conduct GRPO-training using Qwen3-4B-
+Base and report pass@1 averaged over 16 seeds on 4 benchmarks. Different from we use
+answers sampled from the Qwen3-4B-Base model.
+
+MATH AIME AMC GPQA
+
+#Train 500 24 23 Diamond Avg.
+Self-Instruct
+(Qwen3-4B-Base NoCoT) 5000 75.7 13.1 51.4 28.0 42.1
++ Self-Consistency Filter 2815 75.9 11.5 54.8 29.5 42.9
++ RIP Filter 3492 75.4 12.5 51.2 28.2 41.8
+Self-Instruct (Qwen3-4B NoThink) 5000 75.3 11.0 55.4 27.1 42.2
++ Self-Consistency Filter 1757 75.1 11.9 52.2 27.0 41.5
++ RIP Filter 2263 75.8 13.8 S1.1 30.6 42.8
+CoT-Self-Instruct (Qwen3-4B NoSolve) 5000 75.5 11.0 52.2 31.4 42.5
++ Self-Consistency Filter 1672 77.0 15.4 50.5 35.4 44.6
++ RIP Filter 2456 76.2 14.6 53.3 30.4 43.6
+
+Table 9: 893-train-size-matching results of CoT-Self-Instruct, comparing to baselines, for rea-
+soning tasks on targets sampled from Qwen3-4B-Base model responses. These experiments are
+
+the train-size-matching variants of [Table 8] 8
+
+MATH AIME AMC GPQA
+
+# Train 500 24 23 Diamond Avg.
+Qwen3-4B-Base (Zero-Shot) - 67.4 10.6 42.0 24.2 36.1
+slk Prmpt + Qwen3-4B-Base Label 893 75.1 10.4 47.3 28.7 40.4
+Self-Instruct
+(Qwen3-4B-Base NoCoT) 893 75.3 10.0 51.7 27.1 41.0
++ Self-Consistency Filter 893 75.7 11.7 51.3 28.2 41.7
++ RIP Filter 893 76.2 12.5 50.5 29.2 42.1
+Self-Instruct (Qwen3-4B NoThink) 893 75.3 10.0 51.7 27.1 41.0
++ Self-Consistency Filter 893 76.2 10.2 53.3 26.6 41.6
++ RIP Filter 893 76.0 11.9 52.2 31.3 42.8
+CoT-Self-Instruct (Qwen3-4B NoSolve) 893 75.9 10.2 51.6 30.1 41.9
++ Self-Consistency Filter 893 76.2 11.5 54.1 34.0 43.9
++ RIP Filter 893 771 13.1 50.0 33.9 43.5
+
+Table 10: Results of CoT-Self-Instruct and other prompt templates for reasoning tasks on
+majority-voted targets from Qwen3-4B-Base model: We conduct GRPO-training using Qwen3-
+4B-Base and report pass@ 1 averaged over 16 seeds on 4 benchmarks. Different from we
+use majority-voted targets sampled from the Qwen3-4B-Base model.
+
+MATH AIME AMC GPQA
+
+Majority- Voted Qwen3-4B-Base Target # Train 500 24 23 Diamond Avg.
+Self-Instruct (Qwen3-4B-Base) 5000 76.2 11.7 51.7 30.5 42.5
++ Self-Consistency Filter 2815 771.5 13.1 54.5 29.0 43.6
+CoT-Self-Instruct
+
+(Qwen3-4B-Base, No Solve) 5000 76.3 13.1 49.7 30.2 42.3
+CoT-Self-Instruct (Qwen3-4B NoSolve) 5000 76.1 12.3 54.5 31.3 43.5
++ Self-Consistency Filter 1672 771.0 13.5 55.3 31.4 44.3
+
+17
+
+--- Page 18 ---
+Table 11: Additional comparisons for non-verifiable instruction following tasks using differ-
+ent synthetic generation prompts. CoT-Self-Instruct with long CoT generates synthetic data that
+outperforms short CoT and standard Self-Instruct templates. Both AlpacaEval 2 and ArenaHard are
+evaluated with two kinds of judge: GPT-4 Turbo and GPT-4o0, with similar conclusions.
+
+Training AlpacaEval LC Winrate ArenaHard Score A
+
+Method GPT-4 Turbo GPT-40 GPT-4 Turbo —GPT-4o V8:
+Self-Instruct (No CoT) DPO 52.9 46.0 51.8 39.2 47.4
++ RIP Filter DPO 55.2 46.1 55.6 39.5 49.1
+CoT-Self-Instruct (Short CoT) DPO 56.5 44.3 51.6 34.1 46.6
++ RIP Filter DPO 59.0 37.7 54.3 37.5 47.1
+CoT-Self-Instruct DPO 58.5 48.6 62.0 46.7 53.9
++ RIP Filter DPO 63.2 49.4 60.2 45.8 54.7
+
+18
