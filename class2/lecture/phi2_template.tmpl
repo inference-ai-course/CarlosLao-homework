@@ -1,0 +1,7 @@
+{% if system %}
+<|system|>{{ system }}
+{% endif %}
+{% for message in messages %}
+<|{{ message.role }}|>{{ message.content }}
+{% endfor %}
+<|assistant|>
