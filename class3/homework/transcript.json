@@ -1,0 +1,26 @@
+[
+  {
+    "role": "user",
+    "text": "What does the full stack development do?"
+  },
+  {
+    "role": "assistant",
+    "text": "Full-stack development is a term used to describe the skills and expertise required to design, build, and maintain the front-end and back-end of a web application or software system. A full-stack developer is someone who has a broad range of skills and can handle all aspects of software development, from the client-side (front-end) to the server-side (back-end)."
+  },
+  {
+    "role": "user",
+    "text": "What is AI engineering?"
+  },
+  {
+    "role": "assistant",
+    "text": "AI engineering is a field of engineering that focuses on the design, development, and deployment of artificial intelligence (AI) and machine learning (ML) systems. AI engineers are responsible for building and maintaining AI-powered systems that can perform tasks such as image and speech recognition, natural language processing, and predictive modeling."
+  },
+  {
+    "role": "user",
+    "text": "How is the job market of the iEngineering?"
+  },
+  {
+    "role": "assistant",
+    "text": "The job market for AI engineers is growing rapidly and is expected to continue to grow in the coming years. Here are some key trends and statistics:"
+  }
+]
