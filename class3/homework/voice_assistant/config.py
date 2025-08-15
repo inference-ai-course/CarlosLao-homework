@@ -1,20 +1,47 @@
-# voice_assistant/config.py
+"""
+config.py
+---------
+Centralized configuration constants and environment variable loading.
+"""
+
 import os
-from dataclasses import dataclass
 from dotenv import load_dotenv
 
 load_dotenv()
 
-@dataclass(frozen=True)
-class Config:
-    HUGGINGFACE_TOKEN: str = os.getenv("HUGGINGFACE_TOKEN", "")
-    TRANSCRIPT_FILE: str = os.getenv("TRANSCRIPT_FILE", "transcript.json")
-    RESPONSE_FOLDER: str = os.getenv("RESPONSE_FOLDER", "response")
-    PORT: int = int(os.getenv("PORT", "8000"))
-    MAX_TURNS: int = int(os.getenv("MAX_TURNS", "5"))
-    MODEL_NAME: str = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
-    WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "small")
+# API keys and tokens
+HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
-    def validate(self):
-        if not self.HUGGINGFACE_TOKEN:
-            raise RuntimeError("Missing Hugging Face token. Set HUGGINGFACE_TOKEN.")
+# Files and directories
+TRANSCRIPT_FILE = os.getenv("TRANSCRIPT_FILE", "transcript.json")
+RESPONSE_FOLDER = os.getenv("RESPONSE_FOLDER", "response")
+WEB_DIR = os.getenv("WEB_DIR", "web")
+VOICE_MAP_PATH = os.getenv("VOICE_MAP_PATH", "voice_map.json")
+
+# Models
+ASR_MODEL_NAME = os.getenv("ASR_MODEL_NAME", "small")
+LLM_MODEL_ID = os.getenv("LLM_MODEL_ID", "meta-llama/Llama-3.1-8B-Instruct")
+
+# Conversation memory settings
+MAX_TURNS = int(os.getenv("MAX_TURNS", "5"))
+
+# Supported audio types
+ACCEPTED_AUDIO_TYPES = {
+    "audio/mpeg",        # .mp3
+    "audio/wav",         # .wav
+    "audio/x-wav",       # alt MIME for .wav
+    "audio/ogg",         # .ogg
+    "audio/x-m4a",       # .m4a
+    "audio/webm",        # .webm from MediaRecorder
+    "audio/flac",        # .flac
+    "audio/aac",         # .aac
+    "application/octet-stream",  # fallback
+}
+
+# Default persona/system prompt
+DEFAULT_SYSTEM_PROMPT = (
+    "You are a concise, helpful voice assistant. Use the conversation "
+    "history to stay in context. If information is missing, ask a brief "
+    "clarifying question."
+)

@@ -1,30 +1,72 @@
-# voice_assistant/llm.py
-import logging
-from transformers import pipeline
+"""
+llm.py
+------
+Language Model (LLM) integration module.
 
-logger = logging.getLogger("voice_assistant")
+Provides the LLMService class for generating text responses
+based on a provided prompt using a Hugging Face transformer pipeline.
+"""
+
+from transformers import pipeline
+from typing import Optional, List, Dict, Any
 
 class LLMService:
-    def __init__(self, model_name: str, token: str):
-        if not token:
-            raise RuntimeError("Missing Hugging Face token. Set HUGGINGFACE_TOKEN.")
-        logger.info("Initializing LLM pipeline: %s", model_name)
-        self.pipe = pipeline("text-generation", model=model_name, token=token)
-        logger.info("LLM pipeline ready.")
+    """
+    Service for generating AI responses using a specified text generation model.
+    """
+    def __init__(self, model_id: str, token: str):
+        """
+        Initialize the LLMService.
 
-    def generate(self, prompt: str, max_new_tokens: int = 150, temperature: float = 0.7) -> str:
-        logger.info("Generating response (prompt_len=%d)", len(prompt))
-        outputs = self.pipe(prompt, max_new_tokens=max_new_tokens, do_sample=True, temperature=temperature)
-        full_text = outputs[0]["generated_text"]
-        reply = full_text[len(prompt):].strip().split("\n")[0].strip()
-        logger.info("Generated reply (chars=%d)", len(reply))
-        logger.debug("Reply preview: %s", reply[:200])
-        return reply
+        Parameters
+        ----------
+        model_id : str
+            The Hugging Face model identifier.
+        token : str
+            The authentication token for Hugging Face Hub access.
+        """
+        self.model_id = model_id
+        self.token = token
+        self.generator: Optional[any] = None
 
-    def ready(self) -> bool:
-        try:
-            result = self.pipe("Hello", max_new_tokens=5)
-            return bool(result and result[0].get("generated_text"))
-        except Exception as e:
-            logger.error("LLM readiness failed: %s", e)
-            return False
+    def load(self):
+        """
+        Load the model pipeline into memory.
+        """
+        self.generator = pipeline(
+            "text-generation",
+            model=self.model_id,
+            token=self.token,
+            return_full_text=False
+        )
+
+    def generate(self, prompt: str,
+                 max_new_tokens: int = 200,
+                 temperature: float = 0.7) -> str:
+        """
+        Generate text from the model given a prompt.
+
+        Parameters
+        ----------
+        prompt : str
+            The input prompt containing context and instructions.
+        max_new_tokens : int, optional
+            Maximum tokens to generate, by default 200.
+        temperature : float, optional
+            Sampling temperature; higher values yield more randomness.
+
+        Returns
+        -------
+        str
+            Model-generated continuation text.
+        """
+        if self.generator is None:
+            raise RuntimeError("LLM not loaded")
+        outputs: List[Dict[str, Any]] = self.generator(
+            prompt,
+            max_new_tokens=max_new_tokens,
+            do_sample=True,
+            temperature=temperature
+        )
+        text = (outputs[0].get("generated_text") or "").strip()
+        return text.lstrip("Assistant:").strip()

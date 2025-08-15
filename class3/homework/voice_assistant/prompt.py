@@ -1,31 +1,51 @@
-# voice_assistant/prompt.py
-import logging
+"""
+prompt.py
+---------
+Prompt assembly utilities.
+
+Contains helpers for formatting conversation history and system instructions
+into a structured prompt suitable for passing to the language model.
+"""
+
 from typing import List, Dict
-
-logger = logging.getLogger("voice_assistant")
-
-DEFAULT_SYSTEM = (
-    "You are a concise, helpful voice assistant. "
-    "Use the conversation history to stay in context. "
-    "If information is missing, ask a brief clarifying question."
-)
+from .config import DEFAULT_SYSTEM_PROMPT
 
 def normalize_role(role: str) -> str:
-    r = role.lower().strip()
-    if r in ("user", "human"):
-        return "User"
-    if r in ("assistant", "bot", "ai"):
-        return "Assistant"
-    if r == "system":
-        return "System"
-    return role.capitalize() or "User"
+    """
+    Map raw role strings to canonical role labels for prompt display.
+    """
+    role = (role or "").lower().strip()
+    mapping = {"user": "User", "assistant": "Assistant", "system": "System"}
+    return mapping.get(role, "User")
 
-def format_prompt(user_text: str, history: List[Dict[str, str]], system_message: str = DEFAULT_SYSTEM) -> str:
+def format_prompt(
+    history: List[Dict[str, str]],
+    system_message: str = DEFAULT_SYSTEM_PROMPT,
+    include_speaker: bool = True
+) -> str:
+    """
+    Format conversation history into a prompt string.
+
+    Parameters
+    ----------
+    history : list of dict
+        The conversation history with role, text, and optional speaker.
+    system_message : str
+        The system-level instruction or persona definition.
+    include_speaker : bool
+        Whether to annotate user lines with their speaker_id.
+
+    Returns
+    -------
+    str
+        Combined, line-by-line conversation prompt text.
+    """
     lines = [f"System: {system_message}", ""]
     for m in history:
-        lines.append(f"{normalize_role(m['role'])}: {m['text'].strip()}")
-    lines.append(f"User: {user_text.strip()}")
+        role = normalize_role(m.get("role"))
+        text = (m.get("text") or "").strip()
+        speaker = m.get("speaker")
+        prefix = f"{role}({speaker})" if include_speaker and role == "User" and speaker else role
+        lines.append(f"{prefix}: {text}")
     lines.append("Assistant:")
-    prompt = "\n".join(lines)
-    logger.debug("Formatted prompt (first 300 chars): %s", prompt[:300])
-    return prompt
+    return "\n".join(lines)

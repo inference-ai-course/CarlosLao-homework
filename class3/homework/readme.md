@@ -16,16 +16,45 @@ A lightweight FastAPI-based service for transforming short voice inputs into a f
 
 ## Project Structure
 
-```plaintext
-voice-assistant/
-├── main.py               # FastAPI app with endpoints
-├── utils.py              # Helper functions for file handling
-├── transcript.json       # Stores chat history
-├── response/             # Folder for generated TTS audio files
-├── .env                  # Environment variables
-├── requirements.txt      # Python dependencies
-└── README.md             # Project documentation
-```
+<PRE>
+homework
+├── prompt.txt                    # Prompt text template
+├── readme.md                     # Project documentation
+├── transcript.json               # Transcript data
+├── generate_audio.py             # Script to generate audio files
+├── main.py                       # Primary entry point
+├── main_full.py                  # Extended/feature‑rich variant
+├── main_plain.py                 # Minimal/plain variant
+├── main_test.py                  # Test runner for main features
+├── utils.py                      # Shared utility functions
+│
+├── audio/                        # Sample audio inputs
+│   └── *.mp3
+│
+├── response/                     # Generated audio responses
+│   └── *.mp3
+│
+├── voice_assistant/              # Core voice assistant package
+│   ├── __init__.py
+│   ├── asr.py                     # Speech recognition
+│   ├── config.py                  # Configuration settings
+│   ├── health.py                  # Health check endpoints
+│   ├── llm.py                     # Language model integration
+│   ├── logging_config.py          # Logging setup
+│   ├── memory.py                  # Memory management
+│   ├── prompt.py                  # Prompt building logic
+│   ├── tts.py                     # Text‑to‑speech
+│   ├── utils.py                   # Package utilities
+│   │
+│   └── routers/                   # API route handlers
+│       ├── __init__.py
+│       ├── chat.py
+│       ├── health.py
+│       └── memory.py
+│
+└── web/                           # Web frontend
+    └── index.html
+</PRE>
 
 ---
 
@@ -48,3 +77,4 @@ cd voice-assistant
 python -m venv venv
 source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+```

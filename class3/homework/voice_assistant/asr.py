@@ -1,51 +1,54 @@
-# voice_assistant/asr.py
-import logging
-import os
-import tempfile
-import wave
-from contextlib import closing
+"""
+asr.py
+-------
+Automatic Speech Recognition (ASR) module.
+
+This module provides the ASRService class which wraps a Whisper model instance
+for converting spoken audio into transcribed text. The class is designed
+to be initialized once and reused to avoid repeated model loading.
+"""
 
 import whisper
-
-logger = logging.getLogger("voice_assistant")
+from typing import Optional
 
 class ASRService:
-    def __init__(self, model_name: str = "small"):
-        logger.info("Loading Whisper ASR model: %s", model_name)
-        self.model = whisper.load_model(model_name)
-        logger.info("Whisper loaded.")
+    """
+    Service for performing speech-to-text transcription using Whisper.
+    """
+    def __init__(self, model_name: str):
+        """
+        Initialize the ASRService with a given Whisper model name.
+
+        Parameters
+        ----------
+        model_name : str
+            The model identifier (e.g., "base", "small", "medium", "large").
+        """
+        self.model_name = model_name
+        self.model: Optional[any] = None
+
+    def load(self):
+        """
+        Load the Whisper model into memory.
+        This should be called once at application startup.
+        """
+        self.model = whisper.load_model(self.model_name)
 
     def transcribe(self, audio_path: str) -> str:
-        logger.info("Transcribing: %s", audio_path)
-        try:
-            result = self.model.transcribe(audio_path, verbose=False)
-            text = result.get("text", "").strip()
-            logger.info("Transcription complete (chars=%d)", len(text))
-            return text
-        finally:
-            try:
-                os.remove(audio_path)
-            except Exception:
-                pass
+        """
+        Transcribe an audio file into text.
 
-    def ready(self) -> bool:
-        path = None
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-                path = tmp.name
-                with closing(wave.open(path, "w")) as wf:
-                    wf.setnchannels(1)
-                    wf.setsampwidth(2)
-                    wf.setframerate(16000)
-                    wf.writeframes(b"\x00\x00" * 16000)
-            self.model.transcribe(path, verbose=False)
-            return True
-        except Exception as e:
-            logger.error("ASR readiness failed: %s", e)
-            return False
-        finally:
-            if path:
-                try:
-                    os.remove(path)
-                except Exception:
-                    pass
+        Parameters
+        ----------
+        audio_path : str
+            Path to the audio file to be transcribed.
+
+        Returns
+        -------
+        str
+            The transcribed text.
+        """
+        if self.model is None:
+            raise RuntimeError("ASR model not loaded")
+        result = self.model.transcribe(audio_path, verbose=False)
+        return (result.get("text") or "").strip()

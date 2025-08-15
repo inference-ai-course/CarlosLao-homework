@@ -1,32 +1,28 @@
-# voice_assistant/routers/memory.py
-import logging
-import os
-from fastapi import APIRouter
+"""
+routers/memory.py
+-----------------
+FastAPI router for memory inspection and reset.
+"""
 
-from ..config import Config
-from ..memory import Memory
+from fastapi import APIRouter, Depends
+from ..memory import MemoryService
 
-logger = logging.getLogger("voice_assistant")
+router = APIRouter()
 
-def init_router(memory: Memory, config: Config) -> APIRouter:
-    router = APIRouter()
+def get_services(request):
+    return request.app.state.services
 
-    @router.get("/")
-    async def get_memory():
-        snapshot = await memory.snapshot()
-        logger.info("Returned memory snapshot (%d messages)", len(snapshot))
-        return snapshot
+@router.get("/memory")
+async def get_memory(services = Depends(get_services)):
+    """
+    Retrieve the current in-memory conversation history.
+    """
+    return await services.memory.get_recent()
 
-    @router.delete("/")
-    async def clear_memory():
-        n = await memory.clear()
-        logger.info("Cleared memory (removed %d messages)", n)
-        try:
-            if os.path.exists(config.TRANSCRIPT_FILE):
-                os.remove(config.TRANSCRIPT_FILE)
-                logger.info("Deleted transcript file: %s", config.TRANSCRIPT_FILE)
-        except Exception as e:
-            logger.warning("Failed to delete transcript file: %s", e)
-        return {"cleared": True}
-
-    return router
+@router.delete("/memory")
+async def clear_memory(services = Depends(get_services)):
+    """
+    Clear the in-memory conversation history and delete transcript file.
+    """
+    await services.memory.clear()
+    return {"cleared": True}

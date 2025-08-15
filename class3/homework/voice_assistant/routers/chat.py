@@ -1,79 +1,115 @@
-# voice_assistant/routers/chat.py
+"""
+routers/chat.py
+---------------
+FastAPI router for the /chat endpoint.
+
+Handles audio upload from the client, performs ASR, routes the text to the
+language model, synthesizes a TTS reply, and returns all relevant metadata.
+"""
+
+import os
 import asyncio
+import tempfile
 import logging
-import utils
-from typing import Callable
-
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Request
 from fastapi.responses import JSONResponse
-
-from ..config import Config
+from ..config import ACCEPTED_AUDIO_TYPES, RESPONSE_FOLDER
+from ..utils import get_file_path, guess_media_type
+from ..prompt import format_prompt
+from ..memory import MemoryService
 from ..asr import ASRService
 from ..llm import LLMService
 from ..tts import TTSService
-from ..memory import Memory
-from ..prompt import format_prompt
-from ..utils import save_json, save_upload_to_temp
 
-logger = logging.getLogger("voice_assistant")
+logger = logging.getLogger(__name__)
+router = APIRouter()
 
-ACCEPTED_AUDIO_TYPES = {
-    "audio/mpeg", "audio/wav", "audio/x-wav", "audio/x-m4a", "audio/ogg", "audio/webm", "application/octet-stream"
-}
 
-def init_router(
-    config: Config,
-    asr: ASRService | None,
-    llm: LLMService | None,
-    tts: TTSService | None,
-    memory: Memory
-) -> APIRouter:
-    router = APIRouter()
+class Services:
+    """
+    Aggregate container for all assistant services used in this route.
+    """
+    def __init__(self, asr, llm, tts, memory):
+        self.asr = asr
+        self.llm = llm
+        self.tts = tts
+        self.memory = memory
 
-    def ensure_ready():
-        if not asr or not llm or not tts:
-            raise HTTPException(503, "Services not initialized")
-        # soft readiness: verify subservices quickly
-        if not (llm.ready() and tts.ready()):
-            raise HTTPException(500, "Model services not ready")
 
-    @router.post("/")
-    async def chat(file: UploadFile = File(...)):
-        logger.info("Received /chat request")
-        ensure_ready()
+def get_services(req: Request) -> Services:
+    """
+    Dependency injection hook to access the service bundle from app state.
 
-        # Save upload and transcribe
+    Using a typed Request ensures FastAPI treats this as an internal dependency
+    (not a client-supplied 'request' parameter in the docs).
+    """
+    return req.app.state.services
+
+
+async def save_temp_audio(file: UploadFile) -> str:
+    """
+    Save uploaded audio to a temporary file and return the path.
+
+    Chooses a suffix from the incoming filename; falls back to .bin if missing.
+    """
+    suffix = os.path.splitext(file.filename or "")[1] or ".bin"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        data = await file.read()
+        tmp.write(data)
+        return tmp.name
+
+
+@router.post("/chat/")
+async def chat(
+    file: UploadFile = File(...),
+    services: Services = Depends(get_services),
+):
+    """
+    Primary chat endpoint.
+
+    1. Validate uploaded audio.
+    2. Transcribe audio to text (ASR).
+    3. Update memory with user's message.
+    4. Generate assistant's reply (LLM).
+    5. Convert reply to audio (TTS).
+    6. Return JSON containing all relevant data.
+    """
+    # Effective content type: prefer client-sent; fall back to guess by filename.
+    effective_ctype = file.content_type or guess_media_type(file.filename or "")
+    logger.info("Incoming upload: filename=%s content_type=%s", file.filename, effective_ctype)
+
+    if effective_ctype not in ACCEPTED_AUDIO_TYPES:
+        raise HTTPException(status_code=415, detail=f"Unsupported media type: {effective_ctype}")
+
+    # Save and transcribe audio
+    audio_path = await save_temp_audio(file)
+    try:
+        user_text = await asyncio.to_thread(services.asr.transcribe, audio_path)
+    finally:
         try:
-            temp_path = await save_upload_to_temp(file, ACCEPTED_AUDIO_TYPES)
-        except ValueError as ve:
-            raise HTTPException(400, str(ve))
+            os.remove(audio_path)
+        except Exception:
+            pass
 
-        user_text = await asyncio.to_thread(asr.transcribe, temp_path)  # type: ignore[arg-type]
-        await memory.append("user", user_text)
+    # Conversation and response generation
+    await services.memory.add_user(user_text, "user_1")  # Simplified speaker_id
+    history = await services.memory.get_recent()
+    prompt = format_prompt(history)
+    reply = await asyncio.to_thread(services.llm.generate, prompt)
 
-        # Build prompt and generate
-        history = await memory.snapshot()
-        prompt = format_prompt(user_text, history)
-        assistant_reply = await asyncio.to_thread(llm.generate, prompt)  # type: ignore[arg-type]
-        await memory.append("assistant", assistant_reply)
+    # Synthesize TTS to mounted /audio directory (TTSService returns a URL path)
+    tts_url = await asyncio.to_thread(
+        services.tts.synthesize, reply, file.filename or "response", "user_1"
+    )
+    await services.memory.add_assistant(reply)
 
-        # Persist transcript
-        snapshot = await memory.snapshot()
-        transcript_path = utils.get_file_path(config.TRANSCRIPT_FILE)
-        await asyncio.to_thread(save_json, transcript_path, snapshot)
-
-        # Synthesize TTS
-        tts_path = await asyncio.to_thread(tts.synthesize, assistant_reply, file.filename)  # type: ignore[arg-type]
-
-        logger.info("Completed /chat request")
-        return JSONResponse(
-            content={
-                "transcription": user_text,
-                "response": assistant_reply,
-                "tts_audio": tts_path,
-                "conversation_memory": snapshot,
-                "debug_prompt": prompt,
-            }
-        )
-
-    return router
+    return JSONResponse(
+        content={
+            "speaker_id": "user_1",
+            "transcription": user_text,
+            "response": reply,
+            "tts_audio": tts_url,
+            "conversation_memory": history,
+            "debug_prompt": prompt,
+        }
+    )

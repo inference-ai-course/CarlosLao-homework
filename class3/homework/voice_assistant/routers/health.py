@@ -1,23 +1,37 @@
-# voice_assistant/routers/health.py
-import logging
-from fastapi import APIRouter
+"""
+routers/health.py
+-----------------
+FastAPI router exposing health and readiness endpoints.
+"""
 
-from ..config import Config
-from ..health import status
+from fastapi import APIRouter, Depends
+from ..health import check_ffmpeg_installed, check_asr_ready, check_llm_ready, check_gtts_ready
 
-logger = logging.getLogger("voice_assistant")
+router = APIRouter()
 
-def init_router(config: Config, get_services) -> APIRouter:
+def get_services(request):
+    return request.app.state.services
+
+@router.get("/health")
+async def health(services = Depends(get_services)):
     """
-    get_services: callable returning (asr, llm, tts)
+    Light liveness check of core components.
     """
-    router = APIRouter()
+    return {
+        "ffmpeg_installed": check_ffmpeg_installed(),
+        "asr_model_loaded": services.asr.model is not None,
+        "llm_ready": services.llm.generator is not None,
+        "gtts_ready": True,
+    }
 
-    @router.get("/")
-    def health():
-        asr, llm, tts = get_services()
-        s = status(asr, llm, tts)
-        logger.info("Health status: %s", s)
-        return s
-
-    return router
+@router.get("/health/ready")
+async def health_ready(services = Depends(get_services)):
+    """
+    Deeper readiness check that exercises each component.
+    """
+    return {
+        "ffmpeg_installed": check_ffmpeg_installed(),
+        "asr_model_loaded": check_asr_ready(services.asr),
+        "llm_ready": check_llm_ready(services.llm),
+        "gtts_ready": check_gtts_ready(),
+    }
