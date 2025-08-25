@@ -9,5 +9,6 @@ __pycache__/
 arxiv_chunks/
 arxiv_pdfs/
 arxiv_texts/
-faiss_index.bin
-chunk_metadata.pkl
+*.bin
+*.pkl
+*.db
