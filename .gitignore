@@ -12,3 +12,7 @@ arxiv_texts/
 *.bin
 *.pkl
 *.db
+
+class7/homework/data/*.json
+unsloth_compiled_cache/
+models/

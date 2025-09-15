@@ -1,0 +1,10 @@
+{"question": "What is the main drawback of many DL models for molecular property prediction?", "answer": "They often lack interpretability for chemists."}
+{"question": "What is the role of the ASPP bottleneck in the model?", "answer": "It performs efficient context aggregation."}
+{"question": "What is the purpose of Probability Calibration (PC) in CSGD?", "answer": "It adjusts estimated transition probabilities to mitigate train-test mismatches."}
+{"question": "What is the purpose of the AEGIS system?", "answer": "To automate the identification of papers from specific geographic regions in conference proceedings and perform predefined actions."}
+{"question": "What is the key novelty of ProDiGy's approach?", "answer": "Its novelty lies in combining proximity-based similarity among honest clients with dissimilarity detection to identify adversarial behavior."}
+{"question": "What is the goal of zero-shot TTS?", "answer": "To synthesize high-quality speech mimicking an unseen speaker using only a short reference sample."}
+{"question": "What is the purpose of the geometric integrator in NRMF?", "answer": "To roll out realistic motion trajectories during test-time optimization and generation."}
+{"question": "What is the 'WayObject Costmap' used for?", "answer": "It conditions the local controller on high-level object-level planning costs without requiring explicit RGB input."}
+{"question": "What is the main contribution of the LA-VA study?", "answer": "A proof-of-concept pipeline combining LLMs with traditional algorithms and embedding-based classification for cause-of-death prediction."}
+{"question": "What is the main advantage of FSQ over RVQ in neural audio codecs?", "answer": "FSQ simplifies training, supports single codebooks, and encodes redundancy for robustness in noisy channels."}
