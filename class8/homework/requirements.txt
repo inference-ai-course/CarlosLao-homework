@@ -1,0 +1,8 @@
+arxiv
+langchain
+langchain-community
+langchain-ollama
+langchain-text-splitters
+unstructured
+ollama
+python-dotenv

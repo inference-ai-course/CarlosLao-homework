@@ -1,4 +1,5 @@
 .env
+.ssh/
 .venv/
 .venv310/
 .venv311/
@@ -14,5 +15,6 @@ arxiv_texts/
 *.db
 
 class7/homework/data/*.json
+class8/homework/data/raw/
 unsloth_compiled_cache/
 models/
